@@ -6,3 +6,5 @@ botdo
 
 # Go test cache
 *.test
+
+/logs

@@ -4,71 +4,171 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>botdo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
+<div class="app">
 
-<header>
-  <h1>botdo</h1>
-  <span style="font-size:.85rem;opacity:.6">agent task list</span>
-</header>
+  <!-- ── Sidebar ─────────────────────────────────────────────────────── -->
+  <nav class="sidebar">
+    <div class="sidebar-top">
+      <div class="brand">
+        <span class="brand-mark">bd</span>
+        <div class="brand-text">
+          <span class="brand-name">botdo</span>
+          <span class="brand-sub">agent task list</span>
+        </div>
+      </div>
+    </div>
 
-<main>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Spaces</div>
+      <ul id="space-nav" class="space-nav">
+        <li class="space-item active" data-id="all" onclick="selectSpace('all')">
+          <span class="space-dot"></span>
+          <span class="space-name">All Tasks</span>
+          <span class="space-count" id="count-all">—</span>
+        </li>
+        <li class="space-item" data-id="0" onclick="selectSpace('0')">
+          <span class="space-dot"></span>
+          <span class="space-name">Unassigned</span>
+          <span class="space-count" id="count-0">—</span>
+        </li>
+      </ul>
+    </div>
 
-  <!-- Create task -->
-  <div class="card">
-    <h2>New Task</h2>
-    <form id="task-form">
-      <div class="form-row">
-        <input id="new-title" type="text" placeholder="Title *" required />
-        <textarea id="new-desc" placeholder="Description (optional)"></textarea>
-        <select id="new-agent">
-          <option value="">No agent</option>
+    <div class="sidebar-footer">
+      <button class="btn-new-space" onclick="openModal('space-modal')">
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+          <path d="M5.5 1v9M1 5.5h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        New Space
+      </button>
+      <div id="sync-status" class="sync-status"></div>
+    </div>
+  </nav>
+
+  <!-- ── Main ─────────────────────────────────────────────────────────── -->
+  <div class="main">
+    <div class="main-header">
+      <div class="main-title-row">
+        <h1 id="space-title" class="space-title">All Tasks</h1>
+        <span id="space-workdir" class="space-workdir"></span>
+      </div>
+      <div class="main-header-actions">
+        <select id="filter-agent" class="filter-select">
+          <option value="">All agents</option>
           <option value="claude-code">Claude Code</option>
         </select>
-        <button type="submit" class="btn-primary">Add</button>
+        <button class="btn-add-task" onclick="openNewTaskModal()">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+            <path d="M5.5 1v9M1 5.5h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          Add Task
+        </button>
+        <button id="btn-delete-space" class="btn-delete-space" onclick="deleteCurrentSpace()" style="display:none" title="Delete space">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M2 3.5h9M5 3.5V2.5a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1M5.5 6v3.5M7.5 6v3.5M3 3.5l.5 7a1 1 0 0 0 1 .9h4a1 1 0 0 0 1-.9l.5-7"
+              stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="kanban-board" class="kanban-board"></div>
+  </div>
+</div>
+
+<!-- ── New Space Modal ───────────────────────────────────────────────── -->
+<div id="space-modal" class="modal-overlay" style="display:none" onclick="closeModalOnOverlay(event,'space-modal')">
+  <div class="modal-box">
+    <div class="modal-box-header">
+      <span class="modal-box-title">New Space</span>
+      <button class="modal-x" onclick="closeModal('space-modal')">×</button>
+    </div>
+    <form id="space-form" onsubmit="createSpace(event)">
+      <div class="form-field">
+        <label class="form-label">Name</label>
+        <input id="new-space-name" type="text" placeholder="e.g. backend, infra, design" autocomplete="off" required />
+      </div>
+      <div class="form-field">
+        <label class="form-label">Work directory <span class="form-hint">(optional)</span></label>
+        <input id="new-space-workdir" type="text" placeholder="/path/to/project" autocomplete="off" />
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" onclick="closeModal('space-modal')">Cancel</button>
+        <button type="submit" class="btn-accent">Create Space</button>
       </div>
     </form>
   </div>
+</div>
 
-  <!-- Filters -->
-  <div class="filters">
-    <label>Status:</label>
-    <select id="filter-status">
-      <option value="">All</option>
-      <option value="pending">Pending</option>
-      <option value="in_progress">In Progress</option>
-      <option value="done">Done</option>
-      <option value="failed">Failed</option>
-    </select>
-
-    <label>Agent:</label>
-    <select id="filter-agent">
-      <option value="">All</option>
-      <option value="claude-code">Claude Code</option>
-      <option value="">Unassigned</option>
-    </select>
+<!-- ── New Task Modal ────────────────────────────────────────────────── -->
+<div id="task-modal" class="modal-overlay" style="display:none" onclick="closeModalOnOverlay(event,'task-modal')">
+  <div class="modal-box">
+    <div class="modal-box-header">
+      <span class="modal-box-title">New Task</span>
+      <button class="modal-x" onclick="closeModal('task-modal')">×</button>
+    </div>
+    <form id="task-form" onsubmit="createTask(event)">
+      <div class="form-field">
+        <label class="form-label">Title</label>
+        <input id="new-title" type="text" placeholder="What needs to be done?" autocomplete="off" required />
+      </div>
+      <div class="form-field">
+        <label class="form-label">Description <span class="form-hint">(optional)</span></label>
+        <textarea id="new-desc" placeholder="More context…"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-label">Space</label>
+          <select id="new-space-select">
+            <option value="">Unassigned</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Agent</label>
+          <select id="new-agent" onchange="togglePermissions()">
+            <option value="">None</option>
+            <option value="claude-code">Claude Code</option>
+          </select>
+        </div>
+      </div>
+      <div id="agent-permissions" class="perm-row" style="display:none">
+        <span class="perm-label">Permissions</span>
+        <label class="perm-check"><input type="checkbox" id="perm-write" /> Write</label>
+        <label class="perm-check"><input type="checkbox" id="perm-edit" /> Edit</label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" onclick="closeModal('task-modal')">Cancel</button>
+        <button type="submit" class="btn-accent">Add Task</button>
+      </div>
+    </form>
   </div>
+</div>
 
-  <!-- Task table -->
-  <table>
-    <thead>
-      <tr>
-        <th>Title</th>
-        <th>Description</th>
-        <th>Status</th>
-        <th>Agent</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody id="task-tbody">
-      <tr><td colspan="5" class="empty">Loading…</td></tr>
-    </tbody>
-  </table>
-
-  <p id="status-bar"></p>
-
-</main>
+<!-- ── Task Detail Drawer ────────────────────────────────────────────── -->
+<div id="detail-overlay" class="modal-overlay" style="display:none" onclick="closeDetailOnOverlay(event)">
+  <div class="detail-drawer" role="dialog" aria-modal="true">
+    <div class="detail-header">
+      <div id="detail-meta" class="detail-meta"></div>
+      <button class="modal-x" onclick="closeDetail()">×</button>
+    </div>
+    <div class="detail-body">
+      <h2 id="detail-title" class="detail-title"></h2>
+      <div id="detail-desc" class="detail-desc"></div>
+      <div class="log-section">
+        <div class="log-header">
+          <span class="log-label">Logs</span>
+          <span id="log-status" class="log-live-indicator"></span>
+        </div>
+        <div id="detail-logs" class="log-output log-timeline"><span class="log-empty">No logs yet.</span></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script src="/app.js"></script>
 </body>

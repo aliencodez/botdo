@@ -19,12 +19,20 @@ const (
 	// AgentOpenCode AgentType = "opencode"  // to be added later
 )
 
+// Permissions controls which file-system tools the agent is allowed to use.
+type Permissions struct {
+	AllowWrite bool `json:"allow_write"`
+	AllowEdit  bool `json:"allow_edit"`
+}
+
 type Task struct {
-	ID          int64     `json:"id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Status      Status    `json:"status"`
-	Agent       AgentType `json:"agent"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          int64       `json:"id"`
+	ProjectID   *int64      `json:"project_id,omitempty"`
+	Title       string      `json:"title"`
+	Description string      `json:"description"`
+	Status      Status      `json:"status"`
+	Agent       AgentType   `json:"agent"`
+	Permissions Permissions `json:"permissions"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at"`
 }

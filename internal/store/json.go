@@ -19,8 +19,10 @@ type JSONStore struct {
 }
 
 type storeData struct {
-	NextID int64          `json:"next_id"`
-	Tasks  []*model.Task  `json:"tasks"`
+	NextID        int64            `json:"next_id"`
+	NextProjectID int64            `json:"next_project_id"`
+	Tasks         []*model.Task    `json:"tasks"`
+	Projects      []*model.Project `json:"projects"`
 }
 
 // Compile-time check that *JSONStore implements Store.
@@ -28,7 +30,7 @@ var _ Store = (*JSONStore)(nil)
 
 // NewJSONStore opens (or creates) a JSON file store at path.
 func NewJSONStore(path string) (Store, error) {
-	s := &JSONStore{path: path, data: &storeData{NextID: 1}}
+	s := &JSONStore{path: path, data: &storeData{NextID: 1, NextProjectID: 1}}
 	if err := s.load(); err != nil {
 		return nil, err
 	}
@@ -99,6 +101,11 @@ func (s *JSONStore) ListTasks(f Filter) ([]*model.Task, error) {
 		if f.Agent != "" && !strings.EqualFold(string(t.Agent), f.Agent) {
 			continue
 		}
+		if f.ProjectID != 0 {
+			if t.ProjectID == nil || *t.ProjectID != f.ProjectID {
+				continue
+			}
+		}
 		cp := *t
 		result = append(result, &cp)
 	}
@@ -130,4 +137,69 @@ func (s *JSONStore) DeleteTask(id int64) error {
 		}
 	}
 	return ErrNotFound
+}
+
+func (s *JSONStore) CreateProject(p *model.Project) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now().UTC()
+	p.ID = s.data.NextProjectID
+	s.data.NextProjectID++
+	p.CreatedAt = now
+	p.UpdatedAt = now
+	s.data.Projects = append(s.data.Projects, p)
+	return s.flush()
+}
+
+func (s *JSONStore) GetProject(id int64) (*model.Project, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, p := range s.data.Projects {
+		if p.ID == id {
+			cp := *p
+			return &cp, nil
+		}
+	}
+	return nil, ErrProjectNotFound
+}
+
+func (s *JSONStore) ListProjects() ([]*model.Project, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	result := make([]*model.Project, len(s.data.Projects))
+	for i, p := range s.data.Projects {
+		cp := *p
+		result[i] = &cp
+	}
+	return result, nil
+}
+
+func (s *JSONStore) UpdateProject(p *model.Project) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	p.UpdatedAt = time.Now().UTC()
+	for i, existing := range s.data.Projects {
+		if existing.ID == p.ID {
+			s.data.Projects[i] = p
+			return s.flush()
+		}
+	}
+	return ErrProjectNotFound
+}
+
+func (s *JSONStore) DeleteProject(id int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for i, p := range s.data.Projects {
+		if p.ID == id {
+			s.data.Projects = append(s.data.Projects[:i], s.data.Projects[i+1:]...)
+			return s.flush()
+		}
+	}
+	return ErrProjectNotFound
 }
