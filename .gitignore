@@ -1,0 +1,8 @@
+# compiled binary
+botdo
+
+# data file
+*.json
+
+# Go test cache
+*.test
