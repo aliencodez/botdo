@@ -23,8 +23,11 @@ type storeData struct {
 	Tasks  []*model.Task  `json:"tasks"`
 }
 
+// Compile-time check that *JSONStore implements Store.
+var _ Store = (*JSONStore)(nil)
+
 // NewJSONStore opens (or creates) a JSON file store at path.
-func NewJSONStore(path string) (*JSONStore, error) {
+func NewJSONStore(path string) (Store, error) {
 	s := &JSONStore{path: path, data: &storeData{NextID: 1}}
 	if err := s.load(); err != nil {
 		return nil, err
