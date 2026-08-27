@@ -198,6 +198,13 @@ func (s *JSONStore) DeleteProject(id int64) error {
 	for i, p := range s.data.Projects {
 		if p.ID == id {
 			s.data.Projects = append(s.data.Projects[:i], s.data.Projects[i+1:]...)
+			now := time.Now().UTC()
+			for _, task := range s.data.Tasks {
+				if task.ProjectID != nil && *task.ProjectID == id {
+					task.ProjectID = nil
+					task.UpdatedAt = now
+				}
+			}
 			return s.flush()
 		}
 	}
