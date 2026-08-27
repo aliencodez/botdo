@@ -7,7 +7,9 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/aliencodez/botdo/internal/agent"
@@ -21,8 +23,10 @@ import (
 var webFS embed.FS
 
 func main() {
-	addr := flag.String("addr", ":8080", "listen address")
-	dataPath := flag.String("data", "botdo.json", "path to JSON data file")
+	addr := flag.String("addr", envAddr(), "listen address")
+	dataPath := flag.String("data", envOr("BOTDO_DATA", "botdo.json"), "path to JSON data file")
+	apiKey := flag.String("api-key", os.Getenv("BOTDO_API_KEY"), "workspace API key (or BOTDO_API_KEY)")
+	checkoutURL := flag.String("checkout-url", os.Getenv("BOTDO_CHECKOUT_URL"), "paid plan checkout URL (or BOTDO_CHECKOUT_URL)")
 
 	// TODO: workspace from the flag is redundant since each space will have it's own working directory
 	workspace := flag.String("workspace", ".", "working dir for agent execution")
@@ -46,7 +50,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("embed: %v", err)
 	}
-	router := api.NewRouter(s, ls, http.FS(sub))
+	router := api.NewRouter(s, ls, http.FS(sub), api.Config{
+		APIKey:      *apiKey,
+		CheckoutURL: *checkoutURL,
+	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -65,4 +72,21 @@ func main() {
 	if err := http.ListenAndServe(*addr, router); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func envAddr() string {
+	if addr := strings.TrimSpace(os.Getenv("BOTDO_ADDR")); addr != "" {
+		return addr
+	}
+	if port := strings.TrimSpace(os.Getenv("PORT")); port != "" {
+		return ":" + port
+	}
+	return ":8080"
+}
+
+func envOr(name, fallback string) string {
+	if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+		return value
+	}
+	return fallback
 }

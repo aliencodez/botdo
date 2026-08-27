@@ -24,6 +24,8 @@ let tasks          = [];
 let spaces         = [];        // projects from API
 let activeSpace    = 'all';     // 'all' | '0' (unassigned) | numeric string
 let activeLogES    = null;
+let appConfig      = { auth_required: false, checkout_url: '' };
+let authenticated  = false;
 
 // ── API ────────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
@@ -32,8 +34,24 @@ async function api(method, path, body) {
   const res = await fetch(path, opts);
   if (res.status === 204) return null;
   const data = await res.json();
+  if (res.status === 401) {
+    openAccessModal('That token was not accepted. Check it and try again.');
+  }
   if (!res.ok) throw new Error(data.error || res.statusText);
   return data;
+}
+
+async function loadConfig() {
+  const res = await fetch('/api/config');
+  if (!res.ok) throw new Error('Unable to load workspace configuration');
+  appConfig = await res.json();
+
+  const upgrade = $id('upgrade-link');
+  if (appConfig.checkout_url) {
+    upgrade.href = appConfig.checkout_url;
+    upgrade.style.display = '';
+  }
+  return true;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -260,11 +278,15 @@ async function loadSpaces() {
 async function loadTasks() {
   try {
     tasks = await api('GET', '/api/tasks');
+    authenticated = true;
     renderSpaceNav();
     renderKanban();
     setSyncStatus(false);
+    return true;
   } catch {
+    authenticated = false;
     setSyncStatus(true);
+    return false;
   }
 }
 
@@ -298,6 +320,36 @@ function closeModal(id) {
 
 function closeModalOnOverlay(e, id) {
   if (e.target === $id(id)) closeModal(id);
+}
+
+function openAccessModal(message) {
+  $id('access-error').textContent = message || '';
+  $id('access-modal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => $id('access-token')?.focus(), 50);
+}
+
+async function saveAccessToken(e) {
+  e.preventDefault();
+  const token = $id('access-token').value.trim();
+  if (!token) return;
+  try {
+    const res = await fetch('/api/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'That token was not accepted');
+    }
+    authenticated = true;
+    $id('access-token').value = '';
+    closeModal('access-modal');
+    await loadAll();
+  } catch (err) {
+    $id('access-error').textContent = err.message;
+  }
 }
 
 function openNewTaskModal() {
@@ -464,9 +516,6 @@ function closeDetailOnOverlay(e) {
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  $id('space-form').addEventListener('submit', createSpace);
-  $id('task-form').addEventListener('submit', createTask);
-  $id('new-agent').addEventListener('change', togglePermissions);
   $id('filter-agent').addEventListener('change', renderKanban);
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
@@ -475,6 +524,10 @@ document.addEventListener('DOMContentLoaded', () => {
     else if ($id('space-modal').style.display !== 'none') closeModal('space-modal');
   });
 
-  loadAll();
-  setInterval(loadAll, POLL_INTERVAL);
+  loadConfig()
+    .then(ready => { if (ready) return loadAll(); })
+    .catch(() => setSyncStatus(true));
+  setInterval(() => {
+    if (!appConfig.auth_required || authenticated) loadAll();
+  }, POLL_INTERVAL);
 });

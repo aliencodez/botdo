@@ -62,6 +62,7 @@
           <option value="">All agents</option>
           <option value="claude-code">Claude Code</option>
         </select>
+        <a id="upgrade-link" class="btn-upgrade" href="#" target="_blank" rel="noopener" style="display:none">Upgrade · $29/mo</a>
         <button class="btn-add-task" onclick="openNewTaskModal()">
           <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
             <path d="M5.5 1v9M1 5.5h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -78,6 +79,28 @@
     </div>
 
     <div id="kanban-board" class="kanban-board"></div>
+  </div>
+</div>
+
+<!-- ── Workspace access ───────────────────────────────────────────────── -->
+<div id="access-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box access-box" role="dialog" aria-modal="true" aria-labelledby="access-title">
+    <div class="access-hero">
+      <span class="brand-mark">bd</span>
+      <div>
+        <h2 id="access-title">Open your agent workspace</h2>
+        <p>One board for assigning work to coding agents and watching every run.</p>
+      </div>
+    </div>
+    <form id="access-form" onsubmit="saveAccessToken(event)">
+      <div class="form-field">
+        <label class="form-label" for="access-token">Workspace token</label>
+        <input id="access-token" type="password" placeholder="Paste the token from your welcome email" autocomplete="current-password" required />
+        <span id="access-error" class="form-error"></span>
+      </div>
+      <button type="submit" class="btn-accent">Open workspace</button>
+      <p class="access-note">Your token stays in this browser and is only sent to this server.</p>
+    </form>
   </div>
 </div>
 
